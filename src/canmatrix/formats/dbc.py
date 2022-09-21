@@ -67,7 +67,8 @@ def format_float(f):  # type: (typing.Any) -> str
 def check_define(define):  # type: (canmatrix.Define) -> None
     # check if define is compatible with dbc. else replace by STRING
     if define.type not in ["ENUM", "STRING", "INT", "HEX", "FLOAT"]:
-        logger.warning("dbc export of attribute type %s not supported; replaced by STRING", define.type)
+        logger.warning(
+            "dbc export of attribute type %s not supported; replaced by STRING", define.type)
         define.definition = "STRING"
         define.type = "STRING"
 
@@ -94,7 +95,8 @@ def create_attribute_string(attribute, attribute_class, name, value, is_string):
     elif value is None:
         value = '""'
 
-    attribute_string = 'BA_ "' + attribute + '" ' + attribute_class + ' ' + name + ' ' + str(value) + ';\n'
+    attribute_string = 'BA_ "' + attribute + '" ' + \
+        attribute_class + ' ' + name + ' ' + str(value) + ';\n'
     return attribute_string
 
 
@@ -102,8 +104,10 @@ def create_comment_string(comment_class, comment_ident, comment, export_encoding
     # type: (str, str, str, str, str, str) -> bytes
     if len(comment) == 0:
         return b""
-    comment_string = ("CM_ " + comment_class + " " + comment_ident + ' "').encode(export_encoding, 'ignore')
-    comment_string += comment.replace('"', '\\"').encode(export_comment_encoding, 'ignore')
+    comment_string = ("CM_ " + comment_class + " " +
+                      comment_ident + ' "').encode(export_encoding, 'ignore')
+    comment_string += comment.replace('"',
+                                      '\\"').encode(export_comment_encoding, 'ignore')
     comment_string += '";\n'.encode(export_encoding, ignore_encoding_errors)
     return comment_string
 
@@ -114,20 +118,24 @@ def dump(in_db, f, **options):
     db = copy.deepcopy(in_db)
 
     dbc_export_encoding = options.get("dbcExportEncoding", 'iso-8859-1')
-    dbc_export_comment_encoding = options.get("dbcExportCommentEncoding",  dbc_export_encoding)
+    dbc_export_comment_encoding = options.get(
+        "dbcExportCommentEncoding",  dbc_export_encoding)
     compatibility = options.get('compatibility', True)
-    dbc_unique_signal_names_per_frame = options.get("dbcUniqueSignalNames", compatibility)
-    ignore_encoding_errors= options.get("ignoreEncodingErrors",  "ignore")
+    dbc_unique_signal_names_per_frame = options.get(
+        "dbcUniqueSignalNames", compatibility)
+    ignore_encoding_errors = options.get("ignoreEncodingErrors",  "ignore")
     write_val_table = options.get("writeValTable", True)
 
     whitespace_replacement = options.get("whitespaceReplacement", '_')
     if whitespace_replacement in ['', None] or {' ', '\t'}.intersection(whitespace_replacement):
-        logger.warning("Settings may result in whitespace in DBC variable names.  This is not supported by the DBC format.")
+        logger.warning(
+            "Settings may result in whitespace in DBC variable names.  This is not supported by the DBC format.")
 
     if db.contains_fd and db.contains_j1939:
         db.add_frame_defines("VFrameFormat",
                              'ENUM  "StandardCAN","ExtendedCAN","reserved","J1939PG","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","reserved","StandardCAN_FD","ExtendedCAN_FD"')
-        logger.warning("dbc export not fully compatible to candb, because both J1939 and CAN_FD frames are defined")
+        logger.warning(
+            "dbc export not fully compatible to candb, because both J1939 and CAN_FD frames are defined")
 
     elif db.contains_fd:
         db.add_global_defines("BusType", "STRING")
@@ -136,7 +144,8 @@ def dump(in_db, f, **options):
     elif db.contains_j1939:
         db.add_global_defines("ProtocolType", "STRING")
         db.add_attribute("ProtocolType", "J1939")
-        db.add_frame_defines("VFrameFormat", 'ENUM  "StandardCAN","ExtendedCAN","reserved","J1939PG"')
+        db.add_frame_defines(
+            "VFrameFormat", 'ENUM  "StandardCAN","ExtendedCAN","reserved","J1939PG"')
 
     if db.contains_fd or db.contains_j1939:
         for frame in db.frames:
@@ -157,7 +166,8 @@ def dump(in_db, f, **options):
 
     # free signals are in special frame in dbc...
     if len(db.signals) > 0:
-        free_signals_dummy_frame = canmatrix.Frame("VECTOR__INDEPENDENT_SIG_MSG")
+        free_signals_dummy_frame = canmatrix.Frame(
+            "VECTOR__INDEPENDENT_SIG_MSG")
         # set arbitration id manualy, constructor would not allow this special id
         free_signals_dummy_frame.arbitration_id.extended = True
         free_signals_dummy_frame.arbitration_id.id = 0x40000000
@@ -167,11 +177,22 @@ def dump(in_db, f, **options):
     # shorten long environment variable names
     for env_var_name in copy.deepcopy(db.env_vars):
         if len(env_var_name) > 32:
-            db.add_env_attribute(env_var_name, "SystemEnvVarLongSymbol", env_var_name)
+            db.add_env_attribute(
+                env_var_name, "SystemEnvVarLongSymbol", env_var_name)
             db.env_vars[env_var_name[:32]] = db.env_vars.pop(env_var_name)
             db.add_env_defines("SystemEnvVarLongSymbol", "STRING")
 
-    header = "VERSION \"created by canmatrix\"\n\n\nNS_ :\n\nBS_:\n\n"
+    # get custom options
+    custom_options = options.get('options')
+    header_text = 'created by canmatrix'
+
+    # sets the custom file version header if the value is contained in the options dictionary
+    if custom_options is not None and custom_options.get('VERSION') is not None:
+        header_text = custom_options.get('VERSION')
+
+    header = "VERSION \"{}\"\n\n\nNS_ :\n\nBS_:\n\n".format(
+        header_text)
+
     f.write(header.encode(dbc_export_encoding, ignore_encoding_errors))
 
     # ECUs
@@ -191,13 +212,16 @@ def dump(in_db, f, **options):
     if write_val_table:
         # ValueTables
         for table in sorted(db.value_tables):
-            f.write(("VAL_TABLE_ " + table).encode(dbc_export_encoding, ignore_encoding_errors))
+            f.write(("VAL_TABLE_ " + table).encode(dbc_export_encoding,
+                    ignore_encoding_errors))
             for row in db.value_tables[table]:
-                f.write(' {} "{}"'.format(str(row), db.value_tables[table][row]).encode(dbc_export_encoding, ignore_encoding_errors))
+                f.write(' {} "{}"'.format(str(row), db.value_tables[table][row]).encode(
+                    dbc_export_encoding, ignore_encoding_errors))
             f.write(";\n".encode(dbc_export_encoding, ignore_encoding_errors))
         f.write("\n".encode(dbc_export_encoding, ignore_encoding_errors))
 
-    output_names = collections.defaultdict(dict)  # type: typing.Dict[canmatrix.Frame, typing.Dict[canmatrix.Signal, str]]
+    # type: typing.Dict[canmatrix.Frame, typing.Dict[canmatrix.Signal, str]]
+    output_names = collections.defaultdict(dict)
 
     for frame in db.frames:
         # fix long frame names , warn if the frame name exceeds 32 characters
@@ -224,10 +248,13 @@ def dump(in_db, f, **options):
 
         # remove "-" from frame names
         if compatibility:
-            frame.name = re.sub("[^A-Za-z0-9]", whitespace_replacement, frame.name)
+            frame.name = re.sub(
+                "[^A-Za-z0-9]", whitespace_replacement, frame.name)
 
-        duplicate_signal_totals = collections.Counter(normalized_names.values())
-        duplicate_signal_counter = collections.Counter()  # type: typing.Counter[str]
+        duplicate_signal_totals = collections.Counter(
+            normalized_names.values())
+        # type: typing.Counter[str]
+        duplicate_signal_counter = collections.Counter()
 
         numbered_names = collections.OrderedDict()  # type: ignore
 
@@ -259,9 +286,8 @@ def dump(in_db, f, **options):
                 db.add_signal_defines("GenSigCycleTime", 'INT 0 65535')
 
             if max([x.phys2raw(None) for y in db.frames for x in y.signals]) > 0 or min([x.phys2raw(None) for y in db.frames for x in y.signals]) < 0:
-                db.add_signal_defines("GenSigStartValue", 'FLOAT 0 100000000000')
-
-
+                db.add_signal_defines("GenSigStartValue",
+                                      'FLOAT 0 100000000000')
 
     # Frames
     for frame in db.frames:
@@ -307,8 +333,10 @@ def dump(in_db, f, **options):
                              signal.size,
                              signal.is_little_endian,
                              sign))
-            signal_line += " (%s,%s)" % (format_float(signal.factor), format_float(signal.offset))
-            signal_line += " [{}|{}]".format(format_float(signal.min), format_float(signal.max))
+            signal_line += " (%s,%s)" % (format_float(signal.factor),
+                                         format_float(signal.offset))
+            signal_line += " [{}|{}]".format(format_float(signal.min),
+                                             format_float(signal.max))
             signal_line += ' "'
 
             if signal.unit is None:
@@ -319,7 +347,8 @@ def dump(in_db, f, **options):
             if len(signal.receivers) == 0:
                 signal.add_receiver('Vector__XXX')
             signal_line += ','.join(signal.receivers) + "\n"
-            f.write(signal_line.encode(dbc_export_encoding, ignore_encoding_errors))
+            f.write(signal_line.encode(
+                dbc_export_encoding, ignore_encoding_errors))
 
         f.write("\n".encode(dbc_export_encoding, ignore_encoding_errors))
     f.write("\n".encode(dbc_export_encoding, ignore_encoding_errors))
@@ -327,12 +356,14 @@ def dump(in_db, f, **options):
     # second Sender:
     for frame in db.frames:
         if len(frame.transmitters) > 1:
-            f.write(("BO_TX_BU_ %d : %s;\n" % (frame.arbitration_id.to_compound_integer(), ','.join(frame.transmitters))).encode(dbc_export_encoding, ignore_encoding_errors))
+            f.write(("BO_TX_BU_ %d : %s;\n" % (frame.arbitration_id.to_compound_integer(), ','.join(
+                frame.transmitters))).encode(dbc_export_encoding, ignore_encoding_errors))
 
     # frame comments
     # wow, there are dbcs where comments are encoded with other coding than rest of dbc...
     for frame in db.frames:
-        f.write(create_comment_string("BO_", "%d " % frame.arbitration_id.to_compound_integer(), frame.comment, dbc_export_encoding, dbc_export_comment_encoding, dbc_export_encoding))
+        f.write(create_comment_string("BO_", "%d " % frame.arbitration_id.to_compound_integer(
+        ), frame.comment, dbc_export_encoding, dbc_export_comment_encoding, dbc_export_encoding))
     f.write("\n".encode(dbc_export_encoding, ignore_encoding_errors))
 
     # signal comments
@@ -359,19 +390,24 @@ def dump(in_db, f, **options):
 
     # write defines
     for (data_type, define) in sorted(list(db.frame_defines.items())):
-        f.write(create_define(data_type, define, "BO_", defaults).encode(dbc_export_encoding, 'replace'))
+        f.write(create_define(data_type, define, "BO_", defaults).encode(
+            dbc_export_encoding, 'replace'))
 
     for (data_type, define) in sorted(list(db.signal_defines.items())):
-        f.write(create_define(data_type, define, "SG_", defaults).encode(dbc_export_encoding, 'replace'))
+        f.write(create_define(data_type, define, "SG_", defaults).encode(
+            dbc_export_encoding, 'replace'))
 
     for (data_type, define) in sorted(list(db.ecu_defines.items())):
-        f.write(create_define(data_type, define, "BU_", defaults).encode(dbc_export_encoding, 'replace'))
+        f.write(create_define(data_type, define, "BU_", defaults).encode(
+            dbc_export_encoding, 'replace'))
 
     for (data_type, define) in sorted(list(db.env_defines.items())):
-        f.write(create_define(data_type, define, "EV_", defaults).encode(dbc_export_encoding, 'replace'))
+        f.write(create_define(data_type, define, "EV_", defaults).encode(
+            dbc_export_encoding, 'replace'))
 
     for (data_type, define) in sorted(list(db.global_defines.items())):
-        f.write(create_define(data_type, define, "", defaults).encode(dbc_export_encoding, 'replace'))
+        f.write(create_define(data_type, define, "", defaults).encode(
+            dbc_export_encoding, 'replace'))
 
     for define_name in sorted(defaults):
         f.write(('BA_DEF_DEF_ "' + define_name + '" ').encode(dbc_export_encoding, ignore_encoding_errors) +
@@ -380,7 +416,8 @@ def dump(in_db, f, **options):
     # ecu-attributes:
     for ecu in db.ecus:
         for attrib, val in sorted(ecu.attributes.items()):
-            f.write(create_attribute_string(attrib, "BU_", ecu.name, val, db.ecu_defines[attrib].type == "STRING").encode(dbc_export_encoding, ignore_encoding_errors))
+            f.write(create_attribute_string(attrib, "BU_", ecu.name, val, db.ecu_defines[attrib].type == "STRING").encode(
+                dbc_export_encoding, ignore_encoding_errors))
     f.write("\n".encode(dbc_export_encoding, ignore_encoding_errors))
 
     # global-attributes:
@@ -392,7 +429,8 @@ def dump(in_db, f, **options):
     # messages-attributes:
     for frame in db.frames:
         for attrib, val in sorted(frame.attributes.items()):
-            f.write(create_attribute_string(attrib, "BO_", str(frame.arbitration_id.to_compound_integer()), val, db.frame_defines[attrib].type == "STRING").encode(dbc_export_encoding, ignore_encoding_errors))
+            f.write(create_attribute_string(attrib, "BO_", str(frame.arbitration_id.to_compound_integer(
+            )), val, db.frame_defines[attrib].type == "STRING").encode(dbc_export_encoding, ignore_encoding_errors))
     f.write("\n".encode(dbc_export_encoding, ignore_encoding_errors))
 
     # signal-attributes:
@@ -455,17 +493,21 @@ def dump(in_db, f, **options):
             f.write(("SIG_GROUP_ " + str(frame.arbitration_id.to_compound_integer()) + " " + sigGroup.name +
                      " " + str(sigGroup.id) + " :").encode(dbc_export_encoding, ignore_encoding_errors))
             for signal in sigGroup.signals:
-                f.write((" " + output_names[frame][signal]).encode(dbc_export_encoding, ignore_encoding_errors))
+                f.write(
+                    (" " + output_names[frame][signal]).encode(dbc_export_encoding, ignore_encoding_errors))
             f.write(";\n".encode(dbc_export_encoding, ignore_encoding_errors))
 
     for frame in db.frames:
         if frame.is_complex_multiplexed:
             for signal in frame.signals:
                 if signal.muxer_for_signal is not None:
-                    f.write(("SG_MUL_VAL_ %d %s %s " % (frame.arbitration_id.to_compound_integer(), signal.name, signal.muxer_for_signal)).encode(dbc_export_encoding, ignore_encoding_errors))
-                    f.write((", ".join(["%d-%d" % (a, b) for a, b in signal.mux_val_grp])).encode(dbc_export_encoding, ignore_encoding_errors))
+                    f.write(("SG_MUL_VAL_ %d %s %s " % (frame.arbitration_id.to_compound_integer(
+                    ), signal.name, signal.muxer_for_signal)).encode(dbc_export_encoding, ignore_encoding_errors))
+                    f.write((", ".join(["%d-%d" % (a, b) for a, b in signal.mux_val_grp])).encode(
+                        dbc_export_encoding, ignore_encoding_errors))
 
-                    f.write(";\n".encode(dbc_export_encoding, ignore_encoding_errors))
+                    f.write(";\n".encode(
+                        dbc_export_encoding, ignore_encoding_errors))
 
     for env_var_name in db.env_vars:
         env_var = db.env_vars[env_var_name]
@@ -477,12 +519,14 @@ def dump(in_db, f, **options):
 
 
 class _FollowUps(object):
-    NOTHING, SIGNAL_COMMENT, FRAME_COMMENT, BOARD_UNIT_COMMENT, GLOBAL_COMMENT = range(5)
+    NOTHING, SIGNAL_COMMENT, FRAME_COMMENT, BOARD_UNIT_COMMENT, GLOBAL_COMMENT = range(
+        5)
 
 
 def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatrix
     dbc_import_encoding = options.get("dbcImportEncoding", 'iso-8859-1')
-    dbc_comment_encoding = options.get("dbcImportCommentEncoding", dbc_import_encoding)
+    dbc_comment_encoding = options.get(
+        "dbcImportCommentEncoding", dbc_import_encoding)
     float_factory = options.get('float_factory', default_float_factory)
 
     i = 0
@@ -495,10 +539,12 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
     db = canmatrix.CanMatrix()
     frames_by_id = {}  # type: typing.Dict[int, canmatrix.Frame]
 
-    def hash_arbitration_id(arbitration_id):  # type: (canmatrix.ArbitrationId) -> int
+    # type: (canmatrix.ArbitrationId) -> int
+    def hash_arbitration_id(arbitration_id):
         return hash((arbitration_id.id, arbitration_id.extended))
 
-    def get_frame_by_id(arbitration_id):  # type: (canmatrix.ArbitrationId) -> typing.Optional[canmatrix.Frame]
+    # type: (canmatrix.ArbitrationId) -> typing.Optional[canmatrix.Frame]
+    def get_frame_by_id(arbitration_id):
         try:
             return frames_by_id[hash_arbitration_id(arbitration_id)]
         except KeyError:
@@ -513,23 +559,25 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
         if len(l) == 0:
             continue
         try:
-        # if 1==1:
+            # if 1==1:
             if follow_up == _FollowUps.SIGNAL_COMMENT:
                 try:
-                    comment += "\n" + l.decode(dbc_comment_encoding).replace('\\"', '"')
+                    comment += "\n" + \
+                        l.decode(dbc_comment_encoding).replace('\\"', '"')
                 except:
                     logger.error("Error decoding line: %d (%s)" % (i, line))
-                if re.match(r'.*" *;\Z',l.decode(dbc_import_encoding).strip()) is not None:
+                if re.match(r'.*" *;\Z', l.decode(dbc_import_encoding).strip()) is not None:
                     follow_up = _FollowUps.NOTHING
                     if signal is not None:
                         signal.add_comment(comment[:-1].strip()[:-1])
                 continue
             elif follow_up == _FollowUps.FRAME_COMMENT:
                 try:
-                    comment += "\n" + l.decode(dbc_comment_encoding).replace('\\"', '"')
+                    comment += "\n" + \
+                        l.decode(dbc_comment_encoding).replace('\\"', '"')
                 except:
                     logger.error("Error decoding line: %d (%s)" % (i, line))
-                if re.match(r'.*" *;\Z',l.decode(dbc_import_encoding).strip()) is not None:
+                if re.match(r'.*" *;\Z', l.decode(dbc_import_encoding).strip()) is not None:
                     follow_up = _FollowUps.NOTHING
                     if frame is not None:
                         frame.add_comment(comment[:-1].strip()[:-1])
@@ -540,14 +588,15 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                         l.decode(dbc_comment_encoding).replace('\\"', '"')
                 except:
                     logger.error("Error decoding line: %d (%s)" % (i, line))
-                if re.match(r'.*" *;\Z',l.decode(dbc_import_encoding).strip()) is not None:
+                if re.match(r'.*" *;\Z', l.decode(dbc_import_encoding).strip()) is not None:
                     follow_up = _FollowUps.NOTHING
                     if board_unit is not None:
                         board_unit.add_comment(comment[:-1].strip()[:-1])
                 continue
             decoded = l.decode(dbc_import_encoding).strip()
             if decoded.startswith("BO_ "):
-                regexp = re.compile(r"^BO_ ([^\ ]+) ([^\ ]+) *: *([^\ ]+) ([^\ ]+)")
+                regexp = re.compile(
+                    r"^BO_ ([^\ ]+) ([^\ ]+) *: *([^\ ]+) ([^\ ]+)")
                 temp = regexp.match(decoded)
     #            db.frames.addFrame(Frame(temp.group(1), temp.group(2), temp.group(3), temp.group(4)))
                 frame = canmatrix.Frame(temp.group(2), arbitration_id=int(temp.group(1)),
@@ -587,13 +636,15 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                     )
                     if not temp_signal.is_little_endian:
                         # startbit of motorola coded signals are MSB in dbc
-                        temp_signal.set_startbit(int(temp.group(2)), bitNumbering=1)
+                        temp_signal.set_startbit(
+                            int(temp.group(2)), bitNumbering=1)
                     frame.add_signal(temp_signal)
     #                db.frames.addSignalToLastFrame(tempSig)
                 else:
                     pattern = r"^SG_ +(.+?) +(.+?) *: *(\d+)\|(\d+)@(\d+)([\+|\-]) *\(([0-9.+\-eE]+),([0-9.+\-eE]+)\) *\[([0-9.+\-eE]+)\|([0-9.+\-eE]+)\] +\"(.*)\" +(.*)"
                     regexp = re.compile(pattern)
-                    regexp_raw = re.compile(pattern.encode(dbc_import_encoding))
+                    regexp_raw = re.compile(
+                        pattern.encode(dbc_import_encoding))
                     temp = regexp.match(decoded)
                     temp_raw = regexp_raw.match(original_line)
                     receiver = [b.strip() for b in temp.group(12).split(',')]
@@ -639,7 +690,8 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
 
                     if not temp_signal.is_little_endian:
                         # startbit of motorola coded signals are MSB in dbc
-                        temp_signal.set_startbit(int(temp.group(3)), bitNumbering=1)
+                        temp_signal.set_startbit(
+                            int(temp.group(3)), bitNumbering=1)
                     frame.add_signal(temp_signal)
 
                     if is_complex_multiplexed:
@@ -648,7 +700,8 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
             elif decoded.startswith("BO_TX_BU_ "):
                 regexp = re.compile(r"^BO_TX_BU_ ([0-9]+) *: *(.+) *;")
                 temp = regexp.match(decoded)
-                frame = get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
+                frame = get_frame_by_id(
+                    canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
                 for ecu_name in temp.group(2).split(','):
                     frame.add_transmitter(ecu_name)
             elif decoded.startswith("CM_ SG_ "):
@@ -658,7 +711,8 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                 temp = regexp.match(decoded)
                 temp_raw = regexp_raw.match(l)
                 if temp:
-                    frame = get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
+                    frame = get_frame_by_id(
+                        canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
                     signal = frame.signal_by_name(temp.group(2))
                     if signal:
                         try:
@@ -671,11 +725,13 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                 else:
                     pattern = r"^CM_ +SG_ +(\w+) +(\w+) +\"(.*)"
                     regexp = re.compile(pattern)
-                    regexp_raw = re.compile(pattern.encode(dbc_import_encoding))
+                    regexp_raw = re.compile(
+                        pattern.encode(dbc_import_encoding))
                     temp = regexp.match(decoded)
                     temp_raw = regexp_raw.match(l)
                     if temp:
-                        frame = get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
+                        frame = get_frame_by_id(
+                            canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
                         signal = frame.signal_by_name(temp.group(2))
                         try:
                             comment = temp_raw.group(3).decode(
@@ -693,7 +749,8 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                 temp = regexp.match(decoded)
                 temp_raw = regexp_raw.match(l)
                 if temp:
-                    frame = get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
+                    frame = get_frame_by_id(
+                        canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
                     if frame:
                         try:
                             frame.add_comment(temp_raw.group(2).decode(
@@ -705,11 +762,13 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                 else:
                     pattern = r"^CM_ +BO_ +(\w+) +\"(.*)"
                     regexp = re.compile(pattern)
-                    regexp_raw = re.compile(pattern.encode(dbc_import_encoding))
+                    regexp_raw = re.compile(
+                        pattern.encode(dbc_import_encoding))
                     temp = regexp.match(decoded)
                     temp_raw = regexp_raw.match(l)
                     if temp:
-                        frame = get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
+                        frame = get_frame_by_id(
+                            canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
                         try:
                             comment = temp_raw.group(2).decode(
                                 dbc_comment_encoding).replace('\\"', '"')
@@ -731,11 +790,13 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                             board_unit.add_comment(temp_raw.group(2).decode(
                                 dbc_comment_encoding).replace('\\"', '"'))
                         except:
-                            logger.error("Error decoding line: %d (%s)" % (i, line))
+                            logger.error(
+                                "Error decoding line: %d (%s)" % (i, line))
                 else:
                     pattern = r"^CM_ +BU_ +(\w+) +\"(.*)"
                     regexp = re.compile(pattern)
-                    regexp_raw = re.compile(pattern.encode(dbc_import_encoding))
+                    regexp_raw = re.compile(
+                        pattern.encode(dbc_import_encoding))
                     temp = regexp.match(decoded)
                     temp_raw = regexp_raw.match(l)
                     if temp:
@@ -766,11 +827,13 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                 if temp:
                     frame_id = temp.group(1)
                     signal_name = temp.group(2)
-                    temp_list = list(canmatrix.utils.escape_aware_split(temp.group(3), '"'))
+                    temp_list = list(
+                        canmatrix.utils.escape_aware_split(temp.group(3), '"'))
 
                     if frame_id.isnumeric():  # value for Frame
                         try:
-                            frame = get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(frame_id)))
+                            frame = get_frame_by_id(
+                                canmatrix.ArbitrationId.from_compound_integer(int(frame_id)))
                             sg = frame.signal_by_name(signal_name)
                             for i in range(math.floor(len(temp_list) / 2)):
                                 val = temp_list[i * 2 + 1]
@@ -780,7 +843,8 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                         except:
                             logger.error("Error with Line: " + str(temp_list))
                     else:
-                        logger.info("Warning: environment variables currently not supported")
+                        logger.info(
+                            "Warning: environment variables currently not supported")
 
             elif decoded.startswith("VAL_TABLE_ "):
                 regexp = re.compile(r"^VAL_TABLE_ +(\w+) +(.*) *;")
@@ -811,13 +875,17 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                 temp_raw = regexp_raw.match(substring_line)
                 if temp:
                     if define_type == "SG_":
-                        db.add_signal_defines(temp.group(1), temp_raw.group(2).decode(dbc_import_encoding))
+                        db.add_signal_defines(temp.group(1), temp_raw.group(
+                            2).decode(dbc_import_encoding))
                     elif define_type == "BO_":
-                        db.add_frame_defines(temp.group(1), temp_raw.group(2).decode(dbc_import_encoding))
+                        db.add_frame_defines(temp.group(1), temp_raw.group(
+                            2).decode(dbc_import_encoding))
                     elif define_type == "BU_":
-                        db.add_ecu_defines(temp.group(1), temp_raw.group(2).decode(dbc_import_encoding))
+                        db.add_ecu_defines(temp.group(1), temp_raw.group(
+                            2).decode(dbc_import_encoding))
                     elif define_type == "EV_":
-                        db.add_env_defines(temp.group(1), temp_raw.group(2).decode(dbc_import_encoding))
+                        db.add_env_defines(temp.group(1), temp_raw.group(
+                            2).decode(dbc_import_encoding))
 
             elif decoded.startswith("BA_DEF_ "):
                 pattern = r"^BA_DEF_ +\"(.+?)\" +(.+) *;"
@@ -834,23 +902,28 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                 tempba = regexp.match(decoded)
 
                 if tempba.group(1).strip().startswith("BO_ "):
-                    regexp = re.compile(r"^BA_ +\"(.+?)\" +BO_ +(\d+) +(.+) *; *")
+                    regexp = re.compile(
+                        r"^BA_ +\"(.+?)\" +BO_ +(\d+) +(.+) *; *")
                     temp = regexp.match(decoded)
                     get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(temp.group(2)))).add_attribute(
                         temp.group(1), temp.group(3))
                 elif tempba.group(1).strip().startswith("SG_ "):
-                    regexp = re.compile(r"^BA_ +\"(.+?)\" +SG_ +(\d+) +(\w+) +(.+) *; *")
+                    regexp = re.compile(
+                        r"^BA_ +\"(.+?)\" +SG_ +(\d+) +(\w+) +(.+) *; *")
                     temp = regexp.match(decoded)
                     if temp is not None:
                         get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(temp.group(2)))).signal_by_name(
                             temp.group(3)).add_attribute(temp.group(1), temp.group(4))
                 elif tempba.group(1).strip().startswith("EV_ "):
-                    regexp = re.compile(r"^BA_ +\"(.+?)\" +EV_ +(\w+) +(.*) *; *")
+                    regexp = re.compile(
+                        r"^BA_ +\"(.+?)\" +EV_ +(\w+) +(.*) *; *")
                     temp = regexp.match(decoded)
                     if temp is not None:
-                        db.add_env_attribute(temp.group(2), temp.group(1), temp.group(3))
+                        db.add_env_attribute(temp.group(
+                            2), temp.group(1), temp.group(3))
                 elif tempba.group(1).strip().startswith("BU_ "):
-                    regexp = re.compile(r"^BA_ +\"(.*?)\" +BU_ +(\w+) +(.+) *; *")
+                    regexp = re.compile(
+                        r"^BA_ +\"(.*?)\" +BU_ +(\w+) +(.+) *; *")
                     temp = regexp.match(decoded)
                     db.ecu_by_name(
                         temp.group(2)).add_attribute(
@@ -864,17 +937,23 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                         db.add_attribute(temp.group(1), temp.group(2))
 
             elif decoded.startswith("SIG_GROUP_ "):
-                regexp = re.compile(r"^SIG_GROUP_ +(\w+) +(\w+) +(\w+) +\:(.*) *; *")
+                regexp = re.compile(
+                    r"^SIG_GROUP_ +(\w+) +(\w+) +(\w+) +\:(.*) *; *")
                 temp = regexp.match(decoded)
-                frame = get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
+                frame = get_frame_by_id(
+                    canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
                 if frame is not None:
                     signal_array = temp.group(4).split(' ')
-                    frame.add_signal_group(temp.group(2), temp.group(3), signal_array)  # todo wrong annotation in canmatrix? Id is a string?
+                    # todo wrong annotation in canmatrix? Id is a string?
+                    frame.add_signal_group(temp.group(
+                        2), temp.group(3), signal_array)
 
             elif decoded.startswith("SIG_VALTYPE_ "):
-                regexp = re.compile(r"^SIG_VALTYPE_ +(\w+) +(\w+)\s*\:(.*) *; *")
+                regexp = re.compile(
+                    r"^SIG_VALTYPE_ +(\w+) +(\w+)\s*\:(.*) *; *")
                 temp = regexp.match(decoded)
-                frame = get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
+                frame = get_frame_by_id(
+                    canmatrix.ArbitrationId.from_compound_integer(int(temp.group(1))))
                 if frame:
                     signal = frame.signal_by_name(temp.group(2))
                     signal.is_float = True
@@ -898,7 +977,8 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                     signal_name = temp.group(2)
                     muxer_for_signal = temp.group(3)
                     mux_val_groups = temp.group(4).split(',')
-                    frame = get_frame_by_id(canmatrix.ArbitrationId.from_compound_integer(int(frame_id)))
+                    frame = get_frame_by_id(
+                        canmatrix.ArbitrationId.from_compound_integer(int(frame_id)))
                     if frame is not None:
                         signal = frame.signal_by_name(signal_name)
                         frame.is_complex_multiplexed = True
@@ -907,7 +987,8 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
                             mux_val_min, mux_val_max = muxVal.split("-")
                             mux_val_min_number = int(mux_val_min)
                             mux_val_max_number = int(mux_val_max)
-                            signal.mux_val_grp.append([mux_val_min_number, mux_val_max_number])
+                            signal.mux_val_grp.append(
+                                [mux_val_min_number, mux_val_max_number])
             elif decoded.startswith("EV_ "):
                 pattern = r"^EV_ +([\w\-\_]+?) *\: +([0-9]+) +\[([0-9.+\-eE]+)\|([0-9.+\-eE]+)\] +\"(.*?)\" +([0-9.+\-eE]+) +([0-9.+\-eE]+) +([\w\-]+?) +(.*); *"
                 regexp = re.compile(pattern)
@@ -943,7 +1024,8 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
             ecu.name = ecu.attributes.get("SystemNodeLongSymbol")[1:-1]
             ecu.del_attribute("SystemNodeLongSymbol")
     for frame in db.frames:
-        frame.cycle_time = int(float(frame.attributes.get("GenMsgCycleTime", 0)))
+        frame.cycle_time = int(
+            float(frame.attributes.get("GenMsgCycleTime", 0)))
         if frame.attributes.get("SystemMessageLongSymbol", None) is not None:
             frame.name = frame.attributes.get("SystemMessageLongSymbol")[1:-1]
             frame.del_attribute("SystemMessageLongSymbol")
@@ -956,9 +1038,12 @@ def load(f, **options):  # type: (typing.IO, **typing.Any) -> canmatrix.CanMatri
         #     frame.extended = 1
 
         for signal in frame.signals:
-            gen_sig_start_value = float_factory(signal.attributes.get("GenSigStartValue", "0"))
-            signal.initial_value = (gen_sig_start_value * signal.factor) + signal.offset
-            signal.cycle_time = int(signal.attributes.get("GenSigCycleTime", 0))
+            gen_sig_start_value = float_factory(
+                signal.attributes.get("GenSigStartValue", "0"))
+            signal.initial_value = (
+                gen_sig_start_value * signal.factor) + signal.offset
+            signal.cycle_time = int(
+                signal.attributes.get("GenSigCycleTime", 0))
             if signal.attribute("SystemSignalLongSymbol") is not None:
                 signal.name = signal.attribute("SystemSignalLongSymbol")[1:-1]
                 signal.del_attribute("SystemSignalLongSymbol")
