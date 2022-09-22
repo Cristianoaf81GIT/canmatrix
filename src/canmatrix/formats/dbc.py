@@ -184,7 +184,7 @@ def dump(in_db, f, **options):
 
     # get custom options
     custom_options = options.get('options')
-    header_text = 'created by canmatrix'
+    header_text = '\"created by canmatrix\"'
 
     # sets the custom file version header if the value is contained in the options dictionary
     if custom_options is not None and custom_options.get('VERSION') is not None:
