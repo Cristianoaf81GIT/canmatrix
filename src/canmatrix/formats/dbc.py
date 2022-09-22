@@ -190,7 +190,7 @@ def dump(in_db, f, **options):
     if custom_options is not None and custom_options.get('VERSION') is not None:
         header_text = custom_options.get('VERSION')
 
-    header = "VERSION \"{}\"\n\n\nNS_ :\n\nBS_:\n\n".format(
+    header = "VERSION {}\n\n\nNS_ :\n\nBS_:\n\n".format(
         header_text)
 
     f.write(header.encode(dbc_export_encoding, ignore_encoding_errors))
