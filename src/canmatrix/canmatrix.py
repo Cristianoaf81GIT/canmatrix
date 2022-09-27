@@ -2242,19 +2242,28 @@ class CanMatrix(object):
                 return {}
         else:
             return {}
+        
+    def convert_frame_value_to_int(self, val: str) -> int:
+        try:
+            float_val = float(val)
+            return int(float_val)
+        except ValueError:
+            return 0
 
     def enum_attribs_to_values(self):  # type: () -> None
         for define in self.ecu_defines:
             if self.ecu_defines[define].type == "ENUM":
                 for bu in self.ecus:
-                    if define in bu.attributes:
+                    if define in bu.attributes:                        
                         bu.attributes[define] = self.ecu_defines[define].values[int(bu.attributes[define])]
 
         for define in self.frame_defines:
             if self.frame_defines[define].type == "ENUM":
                 for frame in self.frames:
                     if define in frame.attributes:
-                        frame.attributes[define] = self.frame_defines[define].values[int(frame.attributes[define])]
+                        value_to_convert = frame.attributes[define]
+                        converted = self.convert_frame_value_to_int(value_to_convert)
+                        frame.attributes[define] = self.frame_defines[define].values[converted]
 
         for define in self.signal_defines:
             if self.signal_defines[define].type == "ENUM":
